@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1558461284336.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3019356126",
+    "id" : "36338C71",
+    "lastKnownWriteTime" : 1560344735,
+    "last_content_update" : 1560802269147,
+    "path" : "D:/calre/Projects/r-classification-pipeline/src/erasmus.Rmd",
+    "project_path" : "src/erasmus.Rmd",
+    "properties" : {
+        "cursorPosition" : "106,19",
+        "scrollLine" : "76",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

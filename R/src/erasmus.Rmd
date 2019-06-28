@@ -1,0 +1,235 @@
+---
+title: "Feature Importance Exploration - No IgM"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+
+# Import libraries
+
+```{r include=FALSE}
+library(tidyverse)
+library(caret)
+library(recipes)
+library(here)
+library(glmnet)
+library(xgboost)
+```
+
+# Load Data
+
+This block performs the following operations:
+
+1. Loads the raw data.
+2. Selects the desired predictor variables.
+3. Drops rows with missing data.
+4. Prepares the target variable, transforming it from 4 classes to 2.
+
+```{r}
+set.seed(88)
+data_csv <- here("data", "raw", "final_data.csv")
+df <- read.csv(data_csv, stringsAsFactors = FALSE)
+# Import Erasmus
+erasmus_csv <- here("data", "interim", "190611_erasmus.csv")
+eras_df <- read.csv(erasmus_csv, stringsAsFactors = FALSE)
+
+eras_df <- eras_df %>% 
+  filter(Sample != "np-001v4") %>% 
+  mutate(Subset = "Test")
+
+eras_samp <- eras_df$Sample
+
+df <- df %>%
+  filter(!Sample %in% eras_samp) %>% 
+  mutate(Subset = "Train")
+```
+
+```{r}
+not_all_na <- function(x) {!all(is.na(x))}
+eras_df <- eras_df %>%
+  select_if(not_all_na)
+
+df <- df %>% 
+  select(names(eras_df))
+
+df <- rbind(df, eras_df)
+
+df <- df %>% 
+  select(-Sample) %>% 
+  drop_na() %>% 
+  mutate(Cohort = factor(if_else(Cohort %in% c("PP", "NP", "PP_Erasmus"), "Primary", "Latent")))
+
+```
+
+# Split
+
+```{r}
+erasmus <- df %>% 
+  filter(Subset == "Test") %>% 
+  select(-Subset)
+
+df <- df %>% 
+  filter(Subset == "Train") %>% 
+  drop_na() %>% 
+  select(-Subset)
+
+```
+# Preprocessing
+
+The following block uses the `recipes` library to log scale and normalize the predictors between 0 and 1.
+
+```{r}
+rec_obj <- recipe(Cohort ~ ., data = df)
+
+normalizer <- rec_obj %>% 
+  step_log(all_predictors()) %>% 
+  step_range(all_predictors(), min = 0, max = 1)
+
+trained_rec <- prep(normalizer, training = df)
+
+norm_df <- bake(trained_rec, df)
+norm_eras <- bake(trained_rec, erasmus)
+```
+
+The following block plots the coefficients from the best model identified by `glmnet`.
+
+```{r}
+# Predictor
+feature_matrix <- mod_df %>% 
+  select(-Cohort) %>% 
+  as.matrix()
+
+# Target
+cohort <- mod_df$Cohort
+
+form = c("Cohort ~ FcAR_postfusion.gB + IgA_CG2 + IgA1_CG1 + IgA1_CG2 + IgA2_CG1 + IgA2_postfusion.gB + IgG3_CG2 + IgG3_pentamer + aHu2AR_CG1")
+
+lasso_fit <- glm(formula(form), data = mod_df, family = binomial)
+
+lasso_fit %>% 
+  tidy() %>% 
+  arrange(desc(estimate)) %>% 
+  filter(term != "(Intercept)") %>% 
+  mutate(term = fct_reorder(term, estimate)) %>% 
+  ggplot(aes(term, estimate)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Coefficients in predictive model",
+       subtitle = "Based on LASSO regression",
+       x = "",
+       y = "Coefficient")
+```
+
+# Evaluating
+
+This block evaluates the performance of the model using the ROC metric.
+
+```{r}
+library(caTools)
+preds <- predict(lasso_fit, mod_df, type = "response")
+
+colAUC(preds, cohort, plotROC = TRUE)
+```
+
+```{r}
+for_plot <- tibble(cohort, preds)
+names(for_plot) <- c("Cohort", "Preds")
+
+ggplot(for_plot) +
+  aes(Cohort, Preds) +
+  geom_jitter(width = .1) +
+  geom_hline(yintercept = .4, linetype="dashed", color = "red") +
+  ylim(0,1) +
+  labs(
+    title = "Predicted Probabilities by Cohort - Full Data",
+    y = "Predicted Probability - Primary"
+  )
+
+ggsave("190612_predictions_all.png")
+```
+
+```{r}
+# Predictor
+feature_matrix_eras <- norm_eras %>% 
+  select(-Cohort)
+
+# Target
+eras_cohort <- norm_eras$Cohort
+
+eras_preds <- predict(lasso_fit, feature_matrix_eras, type = "response")
+
+```
+
+```{r}
+for_plot <- tibble(eras_cohort, eras_preds)
+names(for_plot) <- c("Cohort", "Preds")
+
+ggplot(for_plot) +
+  aes(Cohort, Preds) +
+  geom_jitter(width = .05) +
+  geom_hline(yintercept = .4, linetype="dashed", color = "red") +
+  ylim(0,1) +
+  labs(
+    title = "Predicted Probabilities by Cohort - Erasmus",
+    y = "Predicted Probability - Primary"
+  )
+ggsave("190612_predictions_erasmus.png")
+```
+
+```{r}
+hi <- tibble(cohort, eras_samp, eras_preds)
+hi
+```
+
+This block trains an XGBoost model in order to investigate feature importance.
+
+```{r}
+labels = ifelse(mod_df$Cohort == "Primary", 1, 0)
+
+dtrain <- mod_df %>%
+  select(-Cohort) %>% 
+  as.matrix() %>% 
+  xgb.DMatrix(label = labels)
+
+xgb_params <- list(
+  booster = "gbtree",
+  objective = "binary:logistic"
+)
+
+model_xgb <- xgb.train(
+  params = xgb_params,
+  data = dtrain,
+  print_every_n = 5,
+  nrounds = 60,
+  verbose = 1
+)
+```
+
+This block displays the feature importance metric from XGBoost. This displays the number of times the tree-based model split on a particular feature in order to perform classification. The more times a particular feature is chosen for a split, the more crucial it is to the model.
+
+```{r}
+importance_matrix <- xgb.importance(model = model_xgb)
+xgb.ggplot.importance(importance_matrix)
+```
+
+The following three plots scatter features chosen by the models as important against each other. As you can see, there is a lot of separation in many cases.
+
+```{r}
+ggplot(norm_df, aes(x = IgM.1000f_gB, y = IgM.1000f_postfusion.gB, color = Cohort)) +
+  geom_point() +
+  labs(title = "IgM.1000f_postfusion.gB vs. IgM.1000f_gB")
+```
+
+```{r}
+ggplot(norm_df, aes(x = IgA2_CG2, y = IgA1_CG1, color = Cohort)) +
+  geom_point() +
+  labs(title = "IgA1_CG1 vs. IgA2_CG2")
+```
+
+```{r}
+ggplot(norm_df, aes(x = IgG3_pentamer, y = IgA1_CG1, color = Cohort)) +
+  geom_point() +
+  labs(title = "IgA1_CG1 vs. IgG3_pentamer")
+```

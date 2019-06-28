@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1560300931769.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "4186651238",
+    "id" : "EE1B8ACE",
+    "lastKnownWriteTime" : 1560344737,
+    "last_content_update" : 1560344737725,
+    "path" : "D:/calre/Projects/r-classification-pipeline/src/longitudinal.Rmd",
+    "project_path" : "src/longitudinal.Rmd",
+    "properties" : {
+        "cursorPosition" : "271,15",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 7,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

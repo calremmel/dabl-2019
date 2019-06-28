@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1560295504071.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3665443577",
+    "id" : "C5DA1158",
+    "lastKnownWriteTime" : 1559333045,
+    "last_content_update" : 1560805852537,
+    "path" : "D:/calre/Projects/r-classification-pipeline/src/report.Rmd",
+    "project_path" : "src/report.Rmd",
+    "properties" : {
+        "cursorPosition" : "141,106",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 6,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

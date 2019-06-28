@@ -1,0 +1,9 @@
+{
+    "path" : "D:/calre/Projects/r-classification-pipeline/data/interim",
+    "sortOrder" : [
+        {
+            "ascending" : true,
+            "columnIndex" : 2
+        }
+    ]
+}

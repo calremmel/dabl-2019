@@ -1,0 +1,46 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r}
+library(tidymodels)
+library(class)
+```
+
+```{r}
+df <- read.csv("data/raw/harini_cleaned.csv")
+str(df)
+
+df <- df %>% 
+  select(-Sample) %>% 
+  drop_na() %>% 
+  mutate(Cohort = factor(if_else(Cohort %in% c("PP", "NP"), "Primary", "Latent")))
+
+data_split <- initial_split(df, strata = "Cohort", p = 0.75)
+
+df_train <- training(data_split)
+df_test <- testing(data_split)
+```
+
+```{r}
+rec_obj <- recipe(Cohort ~ ., data = df_train)
+
+normalizer <- rec_obj %>% 
+  step_scale(all_predictors())
+
+trained_rec <- prep(normalizer, training = df_train)
+
+train_data <- bake(trained_rec, df_train)
+test_data <- bake(trained_rec, df_test)
+```
+
+```{r}
+y_pred <- knn(train = train_data[-1], test = test_data[-1], cl = train_data$Cohort, k = 5)
+
+y_pred
+```
+
+```{r}
+mean(y_pred == test_data$Cohort)
+```
